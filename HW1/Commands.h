@@ -11,6 +11,9 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include <signal.h>
+#include <fcntl.h>
+#include <sys/sysinfo.h>
+#include <sys/stat.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define PWD_MAX_LENGTH (200)
@@ -22,6 +25,8 @@ protected:
     std::vector<std::string> m_args;
     int m_number_of_arguments;
     int m_valid_arguments;
+    pid_t m_my_pid;
+    std::string m_name;
 public:
   Command(const char* cmd_line);
   virtual ~Command();
@@ -30,6 +35,9 @@ public:
   //virtual void cleanup();
   // TODO: Add your extra methods if needed
   std::string commandName();
+  void setCommandName(std::string name);
+  pid_t getMyPid();
+  void setMyPid(pid_t new_pid);
 };
 
 class BuiltInCommand : public Command {
@@ -47,17 +55,22 @@ class ExternalCommand : public Command {
 };
 
 class PipeCommand : public Command {
-  // TODO: Add your data members
+    Command* m_left_command;
+    Command* m_right_command;
+    bool m_isstderr;
  public:
-  PipeCommand(const char* cmd_line);
+  PipeCommand(const char* cmd_line, bool isstderr = false);
   virtual ~PipeCommand() {}
   void execute() override;
 };
 
 class RedirectionCommand : public Command {
- // TODO: Add your data members
+    Command* m_left_command;
+    std::string m_right_output;
+    bool m_append;
+    bool m_exist;
  public:
-  explicit RedirectionCommand(const char* cmd_line);
+  explicit RedirectionCommand(const char* cmd_line, bool append = false);
   virtual ~RedirectionCommand() {}
   void execute() override;
   //void prepare() override;
@@ -87,7 +100,6 @@ public:
 };
 
 class ShowPidCommand : public BuiltInCommand {       //showpid
-    pid_t m_pid;
  public:
   ShowPidCommand(const char* cmd_line);
   virtual ~ShowPidCommand() {}
@@ -110,7 +122,6 @@ class JobsList {
   private:
       int m_job_id;
       Command* m_command;
-      pid_t m_pid_of_job;
       bool m_is_stopped;
       time_t m_start_time;
   public:
@@ -118,10 +129,12 @@ class JobsList {
       ~JobEntry();
       int getJobID();
       std::string getCommandName();
-      pid_t getPidOfJob();
+      Command* getCommand();
       bool isStopped();
+      pid_t getPidOfJob();
       time_t getStartTime();
       void setActive();
+      void setStop();
   };
 
   int m_last_job;
@@ -138,6 +151,7 @@ class JobsList {
   void killAllJobs();
   void removeFinishedJobs();
   JobEntry * getJobById(int jobId);
+  JobEntry * getJobByPID(pid_t pid_check);
   void removeJobById(int jobId);
   JobEntry * getLastJob(int* lastJobId);
   JobEntry *getLastStoppedJob(int *jobId);
@@ -214,7 +228,7 @@ class KillCommand : public BuiltInCommand {           //kill
 class SmallShell {
  private:
     std::string m_name_of_smash;
-    std::stack<std::string> m_directory_history;
+    std::string m_last_pw;
     JobsList* m_jobs;
     Command* m_current_command;
   SmallShell();
@@ -228,11 +242,20 @@ class SmallShell {
     // Instantiated on first use.
     return instance;
   }
+//  static SmallShell& make(std::istream& in, std::ostream& out, std::ostream& err)     //remove later!!
+//  {
+//      std::cin.rdbuf(in.rdbuf());
+//      std::cout.rdbuf(out.rdbuf());
+//      std::cerr.rdbuf(err.rdbuf());
+//      return getInstance();
+//  }
+//  void run();
   ~SmallShell();
   std::string getName();
+  std::string getLastPw();
+  void setLastPw(std::string pw);
   void setName(std::string name_changed);
   void executeCommand(const char* cmd_line);
-  std::stack<std::string>& getStack();
   JobsList& getJobs();
   Command* getCurrentCommand();
   void setCurrentCommand(Command* cmd);
