@@ -1,0 +1,12 @@
+chprompt shmolik
+pwd
+cd ..
+cd ..
+cd -
+cd -
+cd -
+showpid
+chprompt
+pwd one two three
+cd wtf
+quit puta
